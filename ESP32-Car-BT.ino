@@ -3,17 +3,13 @@
  * 20/02/20 Tareq Mahwdawi / Juergen Walter
  * Hardware: eMalRob ESP32 + H-Bridge 8833 + OLED + 2 DC Motors + 1 Servo
  * Software: Android - Arduino bluetooth controller
- * 
+ *Modified By: Ritu Ahmed and Hasibur Rahman Advised by Quamrul Hassan 
  */
 
 
-
-
-#include <AFMotor.h>
-
 #include<arduino.h>
 #include <ESP32MotorControl.h>
-#include "BluetoothSerial.h" 
+#include <BluetoothSerial.h>
 #include <ESP32Servo.h>
 
 #include <SPI.h>
@@ -63,6 +59,19 @@ int timeout=0;
 int speedcontrol=0;
 
 ESP32MotorControl MotorControl = ESP32MotorControl();
+void Ende_Anzeige();
+void Start_Anzeige();
+void Vorwaerts_Anzeige();
+void Rueckwaerts_Anzeige();
+void Rechts_Anzeige();
+void Links_Anzeige();
+void Geradelicht();
+void Reverselicht();
+void Stoplicht();
+void Dreh_Links_Anzeige();
+void Dreh_Rechts_Anzeige();
+void Dreh_links_Licht();
+void Dreh_Rechts_Licht();
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -71,6 +80,84 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
+    }
+};
+
+//Modification
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string rxValue = pCharacteristic->getValue();
+      float *a=(float*)(rxValue.c_str());
+      
+      //forward
+      if (a[0]<=-15.0f && a[0]>=-45.0f) {
+        Geradelicht();
+          Vorwaerts_Anzeige();
+          digitalWrite(MotorEN,HIGH);
+          MotorControl.motorForward(0, speedcontrol);
+          MotorControl.motorForward(1, speedcontrol);
+        /*Serial.println("*********");
+        Serial.print("Received Value: ");
+        for (int i = 0; i < rxValue.length(); i++)
+          Serial.print(rxValue[i]);
+
+        Serial.println();
+        Serial.println("*********");*/
+      }
+      //backward
+         else if (a[0]>=15.0f && a[0]<45.0f) {
+        Reverselicht();
+          Rueckwaerts_Anzeige();
+          digitalWrite(MotorEN,HIGH);
+          MotorControl.motorReverse(0, speedcontrol);
+          MotorControl.motorReverse(1, speedcontrol);
+        /*Serial.println("*********");
+        Serial.print("Received Value: ");
+        for (int i = 0; i < rxValue.length(); i++)
+          Serial.print(rxValue[i]);
+
+        Serial.println();
+        Serial.println("*********");*/
+      }
+      //left
+      else if (a[1]>=15.0f && a[1]<=45.0f) {
+        Dreh_Links_Anzeige();
+          Dreh_links_Licht();
+          digitalWrite(MotorEN,HIGH);
+          MotorControl.motorForward(0, speedcontrol);
+          MotorControl.motorReverse(1,speedcontrol);
+        /*Serial.println("*********");
+        Serial.print("Received Value: ");
+        for (int i = 0; i < rxValue.length(); i++)
+          Serial.print(rxValue[i]);
+
+        Serial.println();
+        Serial.println("*********");*/
+      }
+      //right
+         else if (a[1]<=-15.0f && a[1]>-45.0f) {
+        
+          Dreh_Rechts_Licht();
+          Dreh_Rechts_Anzeige();
+          digitalWrite(MotorEN,HIGH);
+          MotorControl.motorForward(1, speedcontrol);
+          MotorControl.motorReverse(0,speedcontrol);
+        /*Serial.println("*********");
+        Serial.print("Received Value: ");
+        for (int i = 0; i < rxValue.length(); i++)
+          Serial.print(rxValue[i]);
+
+        Serial.println();
+        Serial.println("*********");*/
+      }
+      //stop
+      
+        else if(a[0]>-15.0f && a[0]<-45.0f && a[1]<15.0f && a[1]>45.0f){
+         Stoplicht();
+         Ende_Anzeige();
+         digitalWrite(MotorEN,LOW);}
+      
     }
 };
 void setup() 
@@ -148,23 +235,7 @@ void setup()
 }
 
 
-//Modification
 
-class MyCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string rxValue = pCharacteristic->getValue();
-      
-      if (rxValue.length() > 0) {
-        Serial.println("*********");
-        Serial.print("Received Value: ");
-        for (int i = 0; i < rxValue.length(); i++)
-          Serial.print(rxValue[i]);
-
-        Serial.println();
-        Serial.println("*********");
-      }
-    }
-};
 void loop() 
 {   
   if (deviceConnected) {
