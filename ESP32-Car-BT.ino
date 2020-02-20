@@ -7,6 +7,10 @@
  */
 
 
+
+
+#include <AFMotor.h>
+
 #include<arduino.h>
 #include <ESP32MotorControl.h>
 #include "BluetoothSerial.h" 
@@ -17,6 +21,10 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_NeoPixel.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
 #define PIN 14                                          //LED Ausgangs-Pin
 #define NUMPIXELS 90
@@ -38,6 +46,12 @@ BluetoothSerial SerialBT;
 #define Start 35
 #define MotorEN 27
 #define Encoder 25
+#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+BLECharacteristic *pCharacteristic;
+bool deviceConnected = false;
+uint8_t txValue = 0;
 
 int pos = 0;    // variable to store the servo position
 // Recommended PWM GPIO pins on the ESP32 include 2,4,12-19,21-23,25-27,32-33 
@@ -47,11 +61,55 @@ int N=0;
 int t=0;
 int timeout=0;
 int speedcontrol=0;
+
 ESP32MotorControl MotorControl = ESP32MotorControl();
+
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
 void setup() 
 {
   SerialBT.begin("ESP32_CarControl_1"); 
   Serial.begin(9600);
+
+  // Create the BLE Device
+  BLEDevice::init("UART Service");
+
+  // Create the BLE Server
+  BLEServer *pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  // Create the BLE Service
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  // Create a BLE Characteristic
+  pCharacteristic = pService->createCharacteristic(
+                      CHARACTERISTIC_UUID_TX,
+                      BLECharacteristic::PROPERTY_READ
+                    );
+                      
+  pCharacteristic->addDescriptor(new BLE2902());
+
+  BLECharacteristic *pCharacteristic = pService->createCharacteristic(
+                                         CHARACTERISTIC_UUID_RX,
+                                         BLECharacteristic::PROPERTY_WRITE
+                                       );
+
+  pCharacteristic->setCallbacks(new MyCallbacks());
+
+  // Start the service
+  pService->start();
+
+  // Start advertising
+  pServer->getAdvertising()->start();
+  Serial.println("Waiting a client connection to notify...");
+  
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C); 
   display.display();
   delay(2000);
@@ -89,8 +147,41 @@ void setup()
   pixels.show();
 }
 
+
+//Modification
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string rxValue = pCharacteristic->getValue();
+      
+      if (rxValue.length() > 0) {
+        Serial.println("*********");
+        Serial.print("Received Value: ");
+        for (int i = 0; i < rxValue.length(); i++)
+          Serial.print(rxValue[i]);
+
+        Serial.println();
+        Serial.println("*********");
+      }
+    }
+};
 void loop() 
 {   
+  if (deviceConnected) {
+    String datastring = "ESP32: ";
+    datastring += txValue;
+    Serial.printf("*** Sent Value: %d ***\n", txValue);
+    pCharacteristic->setValue(datastring.c_str());
+    pCharacteristic->notify();
+    txValue++;
+  }
+  delay(1000);
+
+
+
+
+
+  
   float Status ;
   float s1;
   Status =analogRead(Start);
