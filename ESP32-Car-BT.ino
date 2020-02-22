@@ -57,6 +57,7 @@ int N=0;
 int t=0;
 int timeout=0;
 int speedcontrol=0;
+int speedcontrol2=0;
 
 ESP32MotorControl MotorControl = ESP32MotorControl();
 void Ende_Anzeige();
@@ -88,10 +89,19 @@ class MyServerCallbacks: public BLEServerCallbacks {
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string rxValue = pCharacteristic->getValue();
-      float *a=(float*)(rxValue.c_str());
+      if(rxValue.length()){
+        
+        
+        char* e, *s;
+        //float *a=(float*)(rxValue.c_str());
+        float roll = strtof(rxValue.c_str(), &s);
+        float pitch = strtof(s, &e);
+        speedcontrol = roll*2.22;
+        speedcontrol2 = pitch*2.22;
+      
       
       //forward
-      if (a[0]<=-15.0f && a[0]>=-45.0f) {
+      if (roll>-45.0f && roll<-5.0f) {
         Geradelicht();
           Vorwaerts_Anzeige();
           digitalWrite(MotorEN,HIGH);
@@ -106,7 +116,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         Serial.println("*********");*/
       }
       //backward
-         else if (a[0]>=15.0f && a[0]<45.0f) {
+         else if (roll>5.0f && roll<=45.0f) {
         Reverselicht();
           Rueckwaerts_Anzeige();
           digitalWrite(MotorEN,HIGH);
@@ -121,12 +131,12 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         Serial.println("*********");*/
       }
       //left
-      else if (a[1]>=15.0f && a[1]<=45.0f) {
+      else if (pitch>5.0f && pitch<=45.0f) {
         Dreh_Links_Anzeige();
           Dreh_links_Licht();
           digitalWrite(MotorEN,HIGH);
-          MotorControl.motorForward(0, speedcontrol);
-          MotorControl.motorReverse(1,speedcontrol);
+          MotorControl.motorForward(0, speedcontrol2);
+          MotorControl.motorReverse(1,speedcontrol2);
         /*Serial.println("*********");
         Serial.print("Received Value: ");
         for (int i = 0; i < rxValue.length(); i++)
@@ -136,13 +146,13 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         Serial.println("*********");*/
       }
       //right
-         else if (a[1]<=-15.0f && a[1]>-45.0f) {
+         else if (pitch<-5.0f && pitch>=-45.0f) {
         
           Dreh_Rechts_Licht();
           Dreh_Rechts_Anzeige();
           digitalWrite(MotorEN,HIGH);
-          MotorControl.motorForward(1, speedcontrol);
-          MotorControl.motorReverse(0,speedcontrol);
+          MotorControl.motorForward(1, speedcontrol2);
+          MotorControl.motorReverse(0,speedcontrol2);
         /*Serial.println("*********");
         Serial.print("Received Value: ");
         for (int i = 0; i < rxValue.length(); i++)
@@ -153,11 +163,12 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       }
       //stop
       
-        else if(a[0]>-15.0f && a[0]<-45.0f && a[1]<15.0f && a[1]>45.0f){
+        else if((roll>=-5.0f && roll<=5.0f) && (pitch>=-5.0f && pitch<=5.0f)){   //I changed the gap
          Stoplicht();
          Ende_Anzeige();
          digitalWrite(MotorEN,LOW);}
       
+      }
     }
 };
 void setup() 
